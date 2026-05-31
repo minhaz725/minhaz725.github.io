@@ -1,97 +1,140 @@
-/*!
-    Title: Dev Portfolio Template
-    Version: 1.2.2
-    Last Change: 03/25/2020
-    Author: Ryan Fitzgerald
-    Repo: https://github.com/RyanFitzgerald/devportfolio-template
-    Issues: https://github.com/RyanFitzgerald/devportfolio-template/issues
+/* ============================================
+   MD Minhazur Rahman — Portfolio Scripts
+   Dark/light toggle, scroll animations, mobile nav
+   ============================================ */
 
-    Description: This file contains all the scripts associated with the single-page
-    portfolio website.
-*/
+(function () {
+  'use strict';
 
-(function($) {
+  // ---- Dark / Light Mode Toggle ----
+  const themeToggle = document.querySelector('.theme-toggle');
+  const root = document.documentElement;
 
-    // Remove no-js class
-    $('html').removeClass('no-js');
+  function setTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (_) {
+      // localStorage unavailable — ignore
+    }
+  }
 
-    // Animate to section when nav is clicked
-    $('header a').click(function(e) {
+  // Init: check localStorage, then system preference, default dark
+  function initTheme() {
+    let saved;
+    try {
+      saved = localStorage.getItem('theme');
+    } catch (_) {
+      // ignore
+    }
+    if (saved === 'light' || saved === 'dark') {
+      setTheme(saved);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setTheme('light');
+    } else {
+      setTheme('dark');
+    }
+  }
 
-        // Treat as normal link if no-scroll class
-        if ($(this).hasClass('no-scroll')) return;
+  initTheme();
 
-        e.preventDefault();
-        var heading = $(this).attr('href');
-        var scrollDistance = $(heading).offset().top;
+  if (themeToggle) {
+    themeToggle.addEventListener('click', function () {
+      const current = root.getAttribute('data-theme');
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    });
+  }
 
-        $('html, body').animate({
-            scrollTop: scrollDistance + 'px'
-        }, Math.abs(window.pageYOffset - $(heading).offset().top) / 1);
+  // ---- Mobile Navigation ----
+  const menuBtn = document.querySelector('.mobile-menu-btn');
+  const navLinks = document.querySelector('.nav-links');
 
-        // Hide the menu once clicked if mobile
-        if ($('header').hasClass('active')) {
-            $('header, body').removeClass('active');
+  if (menuBtn && navLinks) {
+    menuBtn.addEventListener('click', function () {
+      const isOpen = menuBtn.getAttribute('aria-expanded') === 'true';
+      menuBtn.setAttribute('aria-expanded', String(!isOpen));
+      navLinks.classList.toggle('open');
+      document.body.style.overflow = !isOpen ? 'hidden' : '';
+    });
+
+    // Close mobile menu when a nav link is clicked
+    navLinks.querySelectorAll('a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        if (navLinks.classList.contains('open')) {
+          navLinks.classList.remove('open');
+          menuBtn.setAttribute('aria-expanded', 'false');
+          document.body.style.overflow = '';
         }
+      });
     });
 
-    // Scroll to top
-    $('#to-top').click(function() {
-        $('html, body').animate({
-            scrollTop: 0
-        }, 500);
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && navLinks.classList.contains('open')) {
+        navLinks.classList.remove('open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+        menuBtn.focus();
+      }
     });
+  }
 
-    // Scroll to first element
-    $('#lead-down span').click(function() {
-        var scrollDistance = $('#lead').next().offset().top;
-        $('html, body').animate({
-            scrollTop: scrollDistance + 'px'
-        }, 500);
-    });
+  // ---- Scroll Fade-in Animations (Intersection Observer) ----
+  var fadeElements = document.querySelectorAll('.fade-in');
 
-    // Create timeline
-    $('#experience-timeline').each(function() {
-
-        $this = $(this); // Store reference to this
-        $userContent = $this.children('div'); // user content
-
-        // Create each timeline block
-        $userContent.each(function() {
-            $(this).addClass('vtimeline-content').wrap('<div class="vtimeline-point"><div class="vtimeline-block"></div></div>');
+  if ('IntersectionObserver' in window && fadeElements.length > 0) {
+    var observer = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
         });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -40px 0px',
+      }
+    );
 
-        // Add icons to each block
-        $this.find('.vtimeline-point').each(function() {
-            $(this).prepend('<div class="vtimeline-icon"><i class="fa fa-map-marker"></i></div>');
-        });
+    fadeElements.forEach(function (el) {
+      observer.observe(el);
+    });
+  } else {
+    // Fallback: show everything if IntersectionObserver not supported
+    fadeElements.forEach(function (el) {
+      el.classList.add('visible');
+    });
+  }
 
-        // Add dates to the timeline if exists
-        $this.find('.vtimeline-content').each(function() {
-            var date = $(this).data('date');
-            if (date) { // Prepend if exists
-                $(this).parent().prepend('<span class="vtimeline-date">'+date+'</span>');
+  // ---- Active nav link highlighting on scroll ----
+  var sections = document.querySelectorAll('section[id]');
+  var navAnchors = document.querySelectorAll('.nav-links a[href^="#"]');
+
+  if (sections.length > 0 && navAnchors.length > 0) {
+    var sectionObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            navAnchors.forEach(function (a) {
+              a.style.color = '';
+            });
+            var active = document.querySelector('.nav-links a[href="#' + entry.target.id + '"]');
+            if (active) {
+              active.style.color = 'var(--accent)';
             }
+          }
         });
+      },
+      {
+        threshold: 0.2,
+        rootMargin: '-' + (parseInt(getComputedStyle(root).getPropertyValue('--nav-height')) || 64) + 'px 0px -40% 0px',
+      }
+    );
 
+    sections.forEach(function (s) {
+      sectionObserver.observe(s);
     });
-
-    // Open mobile menu
-    $('#mobile-menu-open').click(function() {
-        $('header, body').addClass('active');
-    });
-
-    // Close mobile menu
-    $('#mobile-menu-close').click(function() {
-        $('header, body').removeClass('active');
-    });
-
-    // Load additional projects
-    $('#view-more-projects').click(function(e){
-        e.preventDefault();
-        $(this).fadeOut(300, function() {
-            $('#more-projects').fadeIn(300);
-        });
-    });
-
-})(jQuery);
+  }
+})();
